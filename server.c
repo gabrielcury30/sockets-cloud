@@ -32,7 +32,7 @@ int main(void) {
 
     // Utilizar o getaddrinfo para configurar para IPv4 e IPv6
     memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC; // Aceita IPv4 ou IPv6
+    hints.ai_family = AF_INET6; // Aceita IPv4 ou IPv6
     hints.ai_socktype = SOCK_STREAM; // TCP
     hints.ai_flags = AI_PASSIVE; // Preenche IP automaticamente
 
@@ -74,7 +74,7 @@ int main(void) {
         exit(EXIT_FAILURE);
     }
 
-    printf("Servidor escutando na porta %s...\n", PORT);
+    printf("Servidor: escutando na porta %s...\n", PORT);
 
     while(1) {
         sin_size = sizeof client_addr;
@@ -103,7 +103,7 @@ int main(void) {
 
         // Enviar mensagem 'READY ACK' para o cliente
         if (strcmp(buffer, "READY") == 0) {
-            printf("Comando READY recebido via TCP. Enviando ACK...\n");
+            printf("Servidor: Comando 'READY' recebido via TCP. Enviando 'READY ACK'...\n");
 
             if (send(client_fd, "READY ACK", 9, 0) == -1) {
                 perror("send");
@@ -124,9 +124,16 @@ int main(void) {
         buffer[numbytes] = '\0';
         buffer[strcspn(buffer, "\r\n")] = 0;
 
+        char hostname[128];
+        // Identifica o nome do host onde o servidor está rodando
+        if (gethostname(hostname, sizeof(hostname)) == -1) {
+            perror("gethostname");
+            strcpy(hostname, "unknown_host");
+        }
+
         // Criar arquivos de saída para serem armazenados
-        char output_filename[512];
-        snprintf(output_filename, sizeof(output_filename), "server_dump_%s.txt", buffer);
+        char output_filename[BUFFER_LENGTH + 256];
+        snprintf(output_filename, sizeof(output_filename), "%s_%s.txt", hostname, buffer);
 
         FILE *fp = fopen(output_filename, "w");
         if (fp == NULL) {
@@ -134,7 +141,7 @@ int main(void) {
             close(client_fd);
             continue;
         }
-        printf("Salvando lista de arquivos em: %s\n", output_filename);
+        printf("Servidor: Salvando lista de arquivos em %s\n", output_filename);
 
         // Recepção dos nomes dos arquivos
         int keep_receiving = 1;
@@ -153,13 +160,12 @@ int main(void) {
                 line[strcspn(line, "\r")] = 0;
 
                 if (strcmp(line, "bye") == 0) {
-                    printf("Comando 'bye' recebido. Encerrando conexão\n");
+                    printf("Servidor: Comando 'bye' recebido. Encerrando conexão\n");
                     keep_receiving = 0;
                     break;
                 } else if (strcmp(line, "/bye") == 0) {
                     // Byte Stuffing: Remove o caractere de escape '/' e salva 'bye'
                     fprintf(fp, "bye\n");
-                    printf("Recebido arquivo 'bye' (escapado). Arquivo salvo.\n");
                 } else {
                     fprintf(fp, "%s\n", line);
                 }
@@ -169,7 +175,7 @@ int main(void) {
 
         fclose(fp);
         close(client_fd);
-        printf("Conexão encerrada com %s\n\n", s);
+        printf("Servidor: Conexão encerrada com %s\n\n", s);
     }
 
     close(server_fd);

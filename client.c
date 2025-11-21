@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
 
     // Início da medição de tempo para calcular futuramente o throughput
     gettimeofday(&start, NULL);
-    printf("Client: READY enviado. Aguardando ACK...\n");
+    printf("Client: 'READY' enviado. Aguardando 'READY ACK'...\n");
 
     // Esperar 'READY ACK' do servidor
     int numbytes;
@@ -93,12 +93,12 @@ int main(int argc, char *argv[]) {
     buffer[strcspn(buffer, "\r\n")] = 0;
 
     if (strcmp(buffer, "READY ACK") != 0) {
-        fprintf(stderr, "Erro: Servidor não enviou ACK esperado. Recebi: '%s'\n", buffer);
+        fprintf(stderr, "Erro: Servidor não enviou 'READY ACK' esperado. Recebi: '%s'\n", buffer);
         close(sockfd);
         return EXIT_FAILURE;
     }
 
-    printf("Client: ACK recebido. Iniciando transmissão de arquivos...\n");
+    printf("Client: 'READY ACK' recebido. Iniciando transmissão de arquivos...\n");
 
     // Envia nome do diretório para o servidor
     sprintf(buffer, "%s\n", dir_name);
@@ -120,7 +120,6 @@ int main(int argc, char *argv[]) {
             char file_packet[512];
             if (strcmp(dir->d_name, "bye") == 0) {
                 snprintf(file_packet, sizeof(file_packet), "/bye\n");
-                printf("Enviando arquivo com escape: /bye\n");
             } else {
                 snprintf(file_packet, sizeof(file_packet), "%s\n", dir->d_name);
             }
@@ -134,6 +133,7 @@ int main(int argc, char *argv[]) {
             total_bytes_sent += sent;
         }
         closedir(d);
+        printf("Client: Arquivos enviados com sucesso\n");
     } else {
         perror("Erro ao abrir diretório");
         return EXIT_FAILURE;
@@ -142,6 +142,7 @@ int main(int argc, char *argv[]) {
     // Se enviar 'bye', fecha a conexão com o servidor
     char *msg_bye = "bye";
     int sent = send(sockfd, msg_bye, strlen(msg_bye), 0);
+    printf("Client: Comando 'bye' enviado. Esperando conexão ser encerrada\n");
     total_bytes_sent += sent;
 
     // Fim da medição de tempo para calcular o throughput
@@ -153,13 +154,17 @@ int main(int argc, char *argv[]) {
     double time_taken = (end.tv_sec - start.tv_sec) * 1e6;
     time_taken = (time_taken + (end.tv_usec - start.tv_usec)) * 1e-6;
 
-    // Calcula Throughput (Bytes / Segundo)
+    // Calcula Throughput (Bytes / Segundo), (KB) e (MB)
     double throughput = total_bytes_sent / time_taken;
+    double throughput_kb = throughput / 1024.0;
+    double throughput_mb = throughput_kb / 1024.0;
 
     printf("\n--- Relatório de Execução ---\n");
     printf("Tempo total: %.6f segundos\n", time_taken);
     printf("Bytes enviados: %ld bytes\n", total_bytes_sent);
     printf("Throughput: %.2f bytes/segundo\n", throughput);
+    printf("            %.2f KB/s\n", throughput_kb);
+    printf("            %.2f MB/s\n", throughput_mb);
 
     return EXIT_SUCCESS;
 }
